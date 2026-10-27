@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 
 const express = require('express');
@@ -36,12 +37,17 @@ const dbConfig = {
 const pool = mysql.createPool(dbConfig);
 const MySQLStore = MySQLStoreFactory(session);
 
+// A conexão que armazena as sessões também precisa de TLS.
 const sessionStore = new MySQLStore({
   host: dbConfig.host,
   port: dbConfig.port,
   user: dbConfig.user,
   password: dbConfig.password,
   database: dbConfig.database,
+  ssl: dbConfig.ssl,
+  waitForConnections: true,
+  connectionLimit: 5,
+  queueLimit: 0,
   createDatabaseTable: true,
   clearExpired: true,
   checkExpirationInterval: 900000
@@ -50,6 +56,9 @@ const sessionStore = new MySQLStore({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.disable('x-powered-by');
+
+// O Render atua como proxy HTTPS na frente do Express.
+app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan('dev'));
@@ -168,7 +177,7 @@ async function ensureRoot() {
   const password = process.env.ROOT_PASSWORD;
 
   if (!password) {
-    console.warn('Configure ROOT_PASSWORD no .env.');
+    console.warn('Configure ROOT_PASSWORD no ambiente.');
     return;
   }
 
@@ -277,7 +286,6 @@ app.post('/cadastro', asyncRoute(async (req, res) => {
 }));
 
 // LOGIN
-
 app.post('/login', asyncRoute(async (req, res) => {
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
@@ -311,7 +319,6 @@ app.post('/login', asyncRoute(async (req, res) => {
       class_name: found.class_name
     };
 
-    // Salva a sessão no MySQL antes de redirecionar.
     req.session.save((saveErr) => {
       if (saveErr) {
         console.error('Erro ao salvar sessão:', saveErr);
@@ -502,20 +509,19 @@ app.get('/admin', requireRoot, asyncRoute(async (req, res) => {
      ORDER BY a.created_at DESC`
   );
 
-
   const [studentsManha] = await pool.execute(
     `SELECT u.id, u.full_name, u.username, u.created_at,
             u.class_name,
             COALESCE(SUM(s.grade), 0) AS total_score,
             COUNT(s.grade) AS graded_count
-    FROM users u
-    LEFT JOIN submissions s
-      ON s.student_id = u.id AND s.grade IS NOT NULL
-    LEFT JOIN activities a
-      ON a.id = s.activity_id AND a.class_name = u.class_name
-    WHERE u.role = 'student' AND u.class_name = 'manha'
-    GROUP BY u.id
-    ORDER BY total_score DESC, u.full_name ASC`
+     FROM users u
+     LEFT JOIN submissions s
+       ON s.student_id = u.id AND s.grade IS NOT NULL
+     LEFT JOIN activities a
+       ON a.id = s.activity_id AND a.class_name = u.class_name
+     WHERE u.role = 'student' AND u.class_name = 'manha'
+     GROUP BY u.id
+     ORDER BY total_score DESC, u.full_name ASC`
   );
 
   const [studentsTarde] = await pool.execute(
@@ -523,14 +529,14 @@ app.get('/admin', requireRoot, asyncRoute(async (req, res) => {
             u.class_name,
             COALESCE(SUM(s.grade), 0) AS total_score,
             COUNT(s.grade) AS graded_count
-    FROM users u
-    LEFT JOIN submissions s
-      ON s.student_id = u.id AND s.grade IS NOT NULL
-    LEFT JOIN activities a
-      ON a.id = s.activity_id AND a.class_name = u.class_name
-    WHERE u.role = 'student' AND u.class_name = 'tarde'
-    GROUP BY u.id
-    ORDER BY total_score DESC, u.full_name ASC`
+     FROM users u
+     LEFT JOIN submissions s
+       ON s.student_id = u.id AND s.grade IS NOT NULL
+     LEFT JOIN activities a
+       ON a.id = s.activity_id AND a.class_name = u.class_name
+     WHERE u.role = 'student' AND u.class_name = 'tarde'
+     GROUP BY u.id
+     ORDER BY total_score DESC, u.full_name ASC`
   );
 
   const [counts] = await pool.execute(
@@ -784,14 +790,18 @@ app.use((err, req, res, _next) => {
 (async () => {
   try {
     await pool.query('SELECT 1');
+
+    // Espera o armazenamento de sessões conectar e criar a tabela.
+    await sessionStore.onReady();
+
     await ensureRoot();
 
     app.listen(PORT, () => {
-      console.log(`Pelotão Esperança: http://localhost:${PORT}`);
+      console.log(`Pelotão Esperança iniciado na porta ${PORT}`);
     });
   } catch (err) {
     console.error(
-      'Falha ao conectar ao MySQL. Confira o .env e o banco de dados.',
+      'Falha ao conectar ao MySQL ou iniciar as sessões.',
       err.message
     );
 
