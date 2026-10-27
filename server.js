@@ -29,6 +29,7 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 10000,
   ssl: {
     minVersion: 'TLSv1.2'
   }
@@ -45,6 +46,7 @@ const sessionStore = new MySQLStore({
   password: dbConfig.password,
   database: dbConfig.database,
   ssl: dbConfig.ssl,
+  connectTimeout: 10000,
   waitForConnections: true,
   connectionLimit: 5,
   queueLimit: 0,
@@ -787,24 +789,25 @@ app.use((err, req, res, _next) => {
   });
 });
 
-(async () => {
+// Abre a porta imediatamente para o Render detectar o serviço.
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Pelotão Esperança iniciado na porta ${PORT}.`);
+});
+
+// Diagnostica a conexão sem bloquear a abertura da porta.
+(async function inicializarBanco() {
   try {
     await pool.query('SELECT 1');
-
-    // Espera o armazenamento de sessões conectar e criar a tabela.
-    await sessionStore.onReady();
+    console.log('Conexão com o MySQL estabelecida.');
 
     await ensureRoot();
-
-    app.listen(PORT, () => {
-      console.log(`Pelotão Esperança iniciado na porta ${PORT}`);
-    });
+    console.log('Inicialização do banco concluída.');
   } catch (err) {
-    console.error(
-      'Falha ao conectar ao MySQL ou iniciar as sessões.',
-      err.message
-    );
-
-    process.exit(1);
+    console.error('Falha na inicialização do banco:', err);
   }
 })();
+
+// A conexão do armazenamento de sessões é independente do pool principal.
+sessionStore.onReady()
+  .then(() => console.log('Armazenamento de sessões pronto.'))
+  .catch(err => console.error('Falha no armazenamento de sessões:', err));
