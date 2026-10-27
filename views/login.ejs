@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= mode === 'login' ? 'Entrar' : 'Cadastro' %> · Pelotão Esperança</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="simple-auth-body">
+  <main class="simple-auth-card">
+    <h1>Pelotão Esperança</h1>
+    <% if (notice) { %><div class="notice <%= notice.type %>"><%= notice.message %></div><% } %>
+    <form method="post" action="<%= mode === 'login' ? '/login' : '/cadastro' %>" class="form-stack">
+      <% if (mode === 'register') { %>
+        <input name="full_name" autocomplete="name" minlength="3" maxlength="120" required placeholder="Nome completo" aria-label="Nome completo">
+      <% } %>
+      <input name="username" autocomplete="username" minlength="3" maxlength="40" required placeholder="Usuário" aria-label="Usuário" autofocus>
+      <input type="password" name="password" autocomplete="<%= mode === 'login' ? 'current-password' : 'new-password' %>" minlength="8" maxlength="72" required placeholder="Senha" aria-label="Senha">
+      <% if (mode === 'register') { %>
+        <input name="access_code" autocomplete="off" required placeholder="Código da turma" aria-label="Código da turma">
+      <% } %>
+      <button class="btn btn-primary btn-full" type="submit"><%= mode === 'login' ? 'Entrar' : 'Criar conta' %></button>
+    </form>
+    <a class="simple-auth-switch" href="<%= mode === 'login' ? '/cadastro' : '/login' %>"><%= mode === 'login' ? 'Criar conta' : 'Já tenho conta' %></a>
+  </main>
+</body>
+</html>
