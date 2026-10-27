@@ -27,7 +27,10 @@ const dbConfig = {
   database: process.env.DB_NAME || 'portal_atividades',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  ssl: {
+    minVersion: 'TLSv1.2'
+  }
 };
 
 const pool = mysql.createPool(dbConfig);
