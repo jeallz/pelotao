@@ -38,22 +38,11 @@ const dbConfig = {
 const pool = mysql.createPool(dbConfig);
 const MySQLStore = MySQLStoreFactory(session);
 
-// A conexão que armazena as sessões também precisa de TLS.
 const sessionStore = new MySQLStore({
-  host: dbConfig.host,
-  port: dbConfig.port,
-  user: dbConfig.user,
-  password: dbConfig.password,
-  database: dbConfig.database,
-  ssl: dbConfig.ssl,
-  connectTimeout: 10000,
-  waitForConnections: true,
-  connectionLimit: 5,
-  queueLimit: 0,
   createDatabaseTable: true,
   clearExpired: true,
   checkExpirationInterval: 900000
-});
+}, pool);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
